@@ -1,5 +1,6 @@
 import streamlit as st
 from google import genai
+from google.genai import types  # Imported to manage system configurations
 from PIL import Image
 
 # --- System Configuration ---
@@ -9,7 +10,6 @@ st.set_page_config(page_title="LB Code Enforcer", layout="centered", page_icon="
 API_KEY = st.secrets.get("GEMINI_API_KEY") 
 
 if API_KEY:
-    # Initialize the modern, unified Gen AI Client
     client = genai.Client(api_key=API_KEY)
 else:
     st.error("System Alert: GEMINI_API_KEY not found in environment variables/secrets.")
@@ -53,29 +53,34 @@ def analyze_violation(image):
     """
     
     try:
-        # Utilizing the modern, fast vision-capable model
+        # Enforce strict maximum outputs using configuration token bounds (1 token ~= 4 characters)
+        config = types.GenerateContentConfig(
+            max_output_tokens=60,  # Hard ceiling to guarantee length compliance
+            temperature=0.1        # Lowered variance for consistent, programmatic results
+        )
+        
+        # Deploying the production-ready gemini-3.5-flash model
         response = client.models.generate_content(
-            model='gemini-2.5-flash', 
-            contents=[system_prompt, image]
+            model='gemini-3.5-flash', 
+            contents=[system_prompt, image],
+            config=config
         )
         return response.text.strip()
     except Exception as e:
         return f"API Pipeline Error: {str(e)}"
 
 # --- Interface Layout ---
-st.title("Street Vendor - LBMC 5.73 Violation Analyzer")
+st.title("LBMC 5.73 Violation Analyzer")
 st.markdown("Automated computer vision intake for Go Long Beach app submissions.")
 
 # Drag and drop component
 uploaded_file = st.file_uploader("Upload or Drag & Drop physical evidence (JPG/PNG)", type=['png', 'jpg', 'jpeg'])
 
 if uploaded_file is not None:
-    # Display the evidence
     image = Image.open(uploaded_file)
     st.image(image, caption="Visual Evidence Secured", use_column_width=True)
     
-    # Execution trigger
-    if st.button("Generate Enforcement Statement"):
+    if st.button("Synthesize Enforcement Blurb"):
         with st.spinner("Cross-referencing LBMC 5.73 database..."):
             blurb = analyze_violation(image)
             
